@@ -1,5 +1,6 @@
 using ApexCharts;
 using CryptoDashboard.Components;
+using CryptoDashboard.Components.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,11 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddApexCharts();
+
+builder.Services.AddHttpClient<KrakenService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.kraken.com/");
+});
 
 
 var app = builder.Build();
