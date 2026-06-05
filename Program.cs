@@ -1,6 +1,8 @@
 using ApexCharts;
 using CryptoDashboard.Components;
+using CryptoDashboard.Components.Models;
 using CryptoDashboard.Components.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,11 @@ builder.Services.AddHttpClient<KrakenService>(client =>
 {
     client.BaseAddress = new Uri("https://api.kraken.com/");
 });
+
+var connectionString = builder.Configuration.GetConnectionString("")
+    ?? "Data Source=crypto.db";
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString));
 
 
 var app = builder.Build();
