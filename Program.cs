@@ -22,6 +22,8 @@ var connectionString = builder.Configuration.GetConnectionString("")
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
+builder.Services.AddHostedService<CryptoPriceBackgroundService>();
+
 
 var app = builder.Build();
 
