@@ -11,15 +11,15 @@ public class CryptoPriceBackgroundService(
         while (!cancellationToken.IsCancellationRequested)
         {
             var now = DateTime.UtcNow;
-            var nextMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc)
-                .AddMinutes(1);
-            await Task.Delay(nextMinute - now, cancellationToken);
+            var nextTick = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute,
+                now.Second - (now.Second % 30), DateTimeKind.Utc).AddSeconds(30);
+            await Task.Delay(nextTick - now, cancellationToken);
 
-            await BackgroundFetchAsync();
+            await BackgroundFetchAsync(nextTick);
         }
     }
 
-    private async Task BackgroundFetchAsync()
+    private async Task BackgroundFetchAsync(DateTime tickUtc)
     {
         using var scope = scopeFactory.CreateScope();
         var kraken = scope.ServiceProvider.GetRequiredService<KrakenService>();
@@ -28,7 +28,8 @@ public class CryptoPriceBackgroundService(
         try
         {
             var prices = await kraken.FetchData();
-            var timestamp = DateTime.UtcNow;
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Copenhagen");
+            var timestamp = TimeZoneInfo.ConvertTimeFromUtc(tickUtc, tz);
 
             foreach (var (symbol, price) in prices)
             {
