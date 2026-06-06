@@ -1,0 +1,269 @@
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 3.5rem);
+}
+
+/* ── Chart panel ───────────────────────────────── */
+
+.chart-panel {
+    background: #161a2b;
+    padding: 1.5rem 1.5rem 0;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.chart-pair {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #718096;
+    margin-bottom: 0.3rem;
+}
+
+.chart-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+}
+
+.chart-price {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.price-change {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.price-change.up {
+    color: #68d391;
+}
+
+.price-change.down {
+    color: #fc8181;
+}
+
+.compare-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.compare-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.03);
+}
+
+.compare-chip .up { color: #68d391; }
+.compare-chip .down { color: #fc8181; }
+
+.range-pills {
+    display: flex;
+    gap: 0.3rem;
+    padding-top: 0.25rem;
+}
+
+.range-pill {
+    background: transparent;
+    border: 1px solid #2d3748;
+    color: #718096;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.range-pill:hover {
+    border-color: #a0aec0;
+    color: #a0aec0;
+}
+
+.range-pill.active {
+    background: #f7931a;
+    border-color: #f7931a;
+    color: #000;
+    font-weight: 700;
+}
+
+.chart-empty {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+/* ── Coin list ─────────────────────────────────── */
+
+.coin-panel {
+    flex: 1;
+    background: #0f1117;
+}
+
+.coin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.coin-table thead th {
+    padding: 0.65rem 1rem;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4a5568;
+    font-weight: 500;
+    border-bottom: 1px solid #1a1d2e;
+    text-align: left;
+}
+
+.coin-table thead th.align-right {
+    text-align: right;
+}
+
+.coin-row {
+    cursor: pointer;
+    border-bottom: 1px solid #1a1d2e;
+    transition: background 0.1s;
+}
+
+.coin-row:hover {
+    background: #1a1d2e;
+}
+
+.coin-row.is-primary {
+    background: #1e2235;
+}
+
+.coin-row td {
+    padding: 0.9rem 1rem;
+    vertical-align: middle;
+}
+
+.col-rank {
+    width: 2.5rem;
+    color: #4a5568;
+    font-size: 0.85rem;
+}
+
+.col-asset {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.coin-names {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.coin-ticker {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #e2e8f0;
+}
+
+.coin-fullname {
+    font-size: 0.72rem;
+    color: #4a5568;
+}
+
+.col-price {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    color: #e2e8f0;
+}
+
+.cmp-delta {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.cmp-delta.up {
+    color: #68d391;
+}
+
+.cmp-delta.down {
+    color: #fc8181;
+}
+
+.col-cmp {
+    text-align: right;
+    width: 3.5rem;
+}
+
+.badge-active {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: #f7931a;
+    color: #000;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.btn-cmp {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid #2d3748;
+    background: transparent;
+    color: #718096;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.btn-cmp:hover {
+    border-color: #e2e8f0;
+    color: #e2e8f0;
+}
+
+.btn-cmp.on {
+    border-color: #f7931a;
+    color: #f7931a;
+    background: rgba(247, 147, 26, 0.1);
+    content: "−";
+}

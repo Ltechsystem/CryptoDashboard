@@ -1,7 +1,329 @@
-﻿@page "/"
+@page "/"
+@rendermode InteractiveServer
+@inject AppDbContext Db
+@implements IDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Crypto Dashboard</PageTitle>
 
-<h1>Choose two </h1>
+<div class="dashboard">
 
-Welcome to your new app.
+    <div class="chart-panel">
+        <div class="chart-header">
+            <div class="chart-info">
+                <span class="chart-pair">@PrimaryInfo.Ticker / USD</span>
+                <div class="chart-price-row">
+                    <span class="chart-price" style="color:@PrimaryInfo.Color">
+                        $@(_primaryPrice?.ToString("N2") ?? "—")
+                    </span>
+                    @if (_priceChangePct.HasValue)
+                    {
+                        <span class="price-change @(_priceChangePct > 0 ? "up" : "down")">
+                            @(_priceChangePct > 0 ? "▲" : "▼") @Math.Abs(_priceChangePct.Value).ToString("N2")%
+                        </span>
+                    }
+                </div>
+                @if (_comparedSymbols.Any())
+                {
+                    <div class="compare-chips">
+                        @foreach (var sym in _comparedSymbols)
+                        {
+                            var info = GetCoinInfo(sym);
+                            if (_symbolChangePct.TryGetValue(sym, out var cmpPct) && cmpPct.HasValue && _priceChangePct.HasValue)
+                            {
+                                var delta = cmpPct.Value - _priceChangePct.Value;
+                                <span class="compare-chip" style="border-color:@info.Color">
+                                    <span style="color:@info.Color">@info.Ticker</span>
+                                    <span class="@(delta >= 0 ? "up" : "down")">@(delta >= 0 ? "▲" : "▼") @Math.Abs(delta).ToString("N2")%</span>
+                                </span>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+            <div class="range-pills">
+                @foreach (var r in _ranges)
+                {
+                    <button class="range-pill @(_range == r ? "active" : "")" @onclick="() => SetRange(r)">@r</button>
+                }
+            </div>
+        </div>
+
+        @if (_seriesData.Any(kv => kv.Value.Count > 0))
+        {
+            <ApexChart @key="_chartKey" TItem="PricePoint" Options="_chartOptions" Height="300">
+                @{
+                    var primaryData = _seriesData.GetValueOrDefault(_primarySymbol) ?? [];
+                    var primaryInfo = GetCoinInfo(_primarySymbol);
+                }
+                <ApexPointSeries TItem="PricePoint"
+                    Items="primaryData"
+                    Name="@primaryInfo.Ticker"
+                    SeriesType="SeriesType.Area"
+                    XValue="@(e => e.Timestamp)"
+                    YValue="@(e => e.Price)"
+                    Color="@primaryInfo.Color" />
+
+                @foreach (var symbol in _comparedSymbols)
+                {
+                    var data = _seriesData.GetValueOrDefault(symbol) ?? [];
+                    var info = GetCoinInfo(symbol);
+                    var basePrice = data.FirstOrDefault()?.Price ?? 1m;
+                    <ApexPointSeries TItem="PricePoint"
+                        Items="data"
+                        Name="@info.Ticker"
+                        SeriesType="SeriesType.Area"
+                        XValue="@(e => e.Timestamp)"
+                        YValue="@(e => basePrice != 0 ? (e.Price - basePrice) / basePrice * 100 : 0)"
+                        Color="@info.Color" />
+                }
+            </ApexChart>
+        }
+        else
+        {
+            <div class="chart-empty">Waiting for data...</div>
+        }
+    </div>
+
+    <div class="coin-panel">
+        <table class="coin-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Asset</th>
+                    <th class="align-right">Price</th>
+                    <th class="align-right">CMP</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int rank = 1; }
+                @foreach (var row in _latestPrices)
+                {
+                    var sym = row.Symbol;
+                    var isPrimary = sym == _primarySymbol;
+                    var isCompared = _comparedSymbols.Contains(sym);
+                    var info = GetCoinInfo(sym);
+                    <tr class="coin-row @(isPrimary ? "is-primary" : "")" @onclick="() => SelectPrimary(sym)">
+                        <td class="col-rank">@(rank++)</td>
+                        <td class="col-asset">
+                            <div class="avatar" style="background:@info.Color">@info.Initials</div>
+                            <div class="coin-names">
+                                <span class="coin-ticker">@info.Ticker</span>
+                                <span class="coin-fullname">@info.FullName</span>
+                            </div>
+                        </td>
+                        <td class="col-price">
+                            $@row.Price.ToString("N2")
+                        </td>
+                        <td class="col-cmp">
+                            @if (isPrimary)
+                            {
+                                <span class="badge-active">A</span>
+                            }
+                            else
+                            {
+                                <button class="btn-cmp @(isCompared ? "on" : "")"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => ToggleCompare(sym)">+</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+@code {
+    private record PricePoint(DateTime Timestamp, decimal Price);
+    private record CoinMeta(string Ticker, string FullName, string Color, string Initials);
+
+    private static readonly Dictionary<string, CoinMeta> _coinMeta = new()
+    {
+        ["BTC/USD"] = new("BTC", "Bitcoin",  "#f7931a", "BT"),
+        ["ETH/USD"] = new("ETH", "Ethereum", "#627eea", "ET"),
+        ["SOL/USD"] = new("SOL", "Solana",   "#9945ff", "SO"),
+        ["ADA/USD"] = new("ADA", "Cardano",  "#2563eb", "AD"),
+        ["XRP/USD"] = new("XRP", "XRP",      "#346aa9", "XR"),
+    };
+
+    private static readonly List<string> _symbolOrder =
+        ["BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD", "XRP/USD"];
+
+    private CoinMeta GetCoinInfo(string symbol) =>
+        _coinMeta.TryGetValue(symbol, out var m) ? m
+        : new(symbol.Split('/')[0], symbol, "#718096", symbol[..Math.Min(2, symbol.Length)].ToUpper());
+
+    private CoinMeta PrimaryInfo => GetCoinInfo(_primarySymbol);
+
+    private static readonly string[] _ranges = ["10m", "30m", "1h", "1d"];
+    private string _range = "1h";
+    private string _primarySymbol = "BTC/USD";
+    private decimal? _primaryPrice;
+    private readonly HashSet<string> _comparedSymbols = [];
+    private List<CryptoDataModel> _latestPrices = [];
+    private Dictionary<string, List<PricePoint>> _seriesData = [];
+    private string _chartKey = Guid.NewGuid().ToString();
+    private Dictionary<string, decimal?> _symbolChangePct = [];
+    private decimal? _priceChangePct => _symbolChangePct.GetValueOrDefault(_primarySymbol);
+    private Timer? _timer;
+
+    private IEnumerable<string> ActiveSymbols => _comparedSymbols.Prepend(_primarySymbol);
+
+    private ApexChartOptions<PricePoint> _chartOptions = new();
+
+    private ApexChartOptions<PricePoint> BuildChartOptions()
+    {
+        var symbols = ActiveSymbols.ToList();
+        return new ApexChartOptions<PricePoint>
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Animations = new Animations { Enabled = false },
+            },
+            Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 },
+            Fill = new Fill
+            {
+                Gradient = new FillGradient { OpacityFrom = 0.35, OpacityTo = 0.02 }
+            },
+            Grid = new Grid { BorderColor = "#2d3748" },
+            Xaxis = new XAxis { Type = XAxisType.Datetime, Labels = new XAxisLabels { DatetimeUTC = false } },
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX { Format = "dd MMM HH:mm:ss" },
+                Y = new TooltipY
+                {
+                    Formatter = _comparedSymbols.Any()
+                        ? "function(val, opts) { return opts.seriesIndex === 0 ? parseFloat(val.toPrecision(8)) : parseFloat(val.toPrecision(4)) + '%'; }"
+                        : "function(val) { return parseFloat(val.toPrecision(8)); }",
+                },
+            },
+            Legend = new Legend { Show = false },
+            Yaxis = _comparedSymbols.Any()
+                ? new List<YAxis>(
+                    // index 0 → primary series: left axis hidden when comparing
+                    new[] { new YAxis { SeriesName = GetCoinInfo(_primarySymbol).Ticker, Show = false, Opposite = false, ForceNiceScale = true } }
+                    // index 1..N → compared series: right axis, %; only first one shows labels
+                    .Concat(_comparedSymbols.Select((_, i) => new YAxis
+                    {
+                        Show = i == 0,
+                        Opposite = true,
+                        ForceNiceScale = true,
+                        Labels = i == 0
+                            ? new YAxisLabels { Formatter = "function(val) { return val.toFixed(2) + '%'; }" }
+                            : null,
+                    })))
+                : symbols.Select((sym, i) => new YAxis
+                  {
+                      SeriesName = GetCoinInfo(sym).Ticker,
+                      Show = i == 0,
+                      ForceNiceScale = true,
+                  }).ToList(),
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _timer = new Timer(async _ =>
+        {
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadAsync()
+    {
+        await LoadLatestPricesAsync();
+        await LoadSeriesDataAsync();
+    }
+
+    private async Task LoadLatestPricesAsync()
+    {
+        var raw = (await Db.Snapshots
+            .OrderByDescending(s => s.Timestamp)
+            .Take(50)
+            .ToListAsync())
+            .GroupBy(s => s.Symbol)
+            .Select(g => g.First())
+            .ToList();
+
+        _latestPrices = raw
+            .OrderBy(s => _symbolOrder.Contains(s.Symbol) ? _symbolOrder.IndexOf(s.Symbol) : 99)
+            .ToList();
+
+        _primaryPrice = _latestPrices.FirstOrDefault(p => p.Symbol == _primarySymbol)?.Price;
+    }
+
+    private async Task LoadSeriesDataAsync()
+    {
+        var cutoff = GetRangeCutoff();
+        var symbols = ActiveSymbols.ToList();
+
+        var snapshots = await Db.Snapshots
+            .Where(s => symbols.Contains(s.Symbol) && s.Timestamp >= cutoff)
+            .OrderBy(s => s.Timestamp)
+            .ToListAsync();
+
+        _seriesData = snapshots
+            .GroupBy(s => s.Symbol)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(s => new PricePoint(s.Timestamp, s.Price)).ToList()
+            );
+
+        _symbolChangePct = _seriesData.ToDictionary(
+            kv => kv.Key,
+            kv =>
+            {
+                var series = kv.Value;
+                if (series.Count < 2) return (decimal?)null;
+                var first = series.First().Price;
+                var last = series.Last().Price;
+                return first != 0 ? (last - first) / first * 100 : null;
+            });
+
+        _chartOptions = BuildChartOptions();
+        _chartKey = Guid.NewGuid().ToString();
+    }
+
+    private DateTime GetRangeCutoff()
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Copenhagen");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        return _range switch
+        {
+            "10m" => now.AddMinutes(-10),
+            "30m" => now.AddMinutes(-30),
+            "1h"  => now.AddHours(-1),
+            "1d"  => now.AddDays(-1),
+            _     => now.AddHours(-1)
+        };
+    }
+
+    private async Task SelectPrimary(string symbol)
+    {
+        if (_primarySymbol == symbol) return;
+        _comparedSymbols.Remove(symbol);
+        _primarySymbol = symbol;
+        _primaryPrice = _latestPrices.FirstOrDefault(p => p.Symbol == symbol)?.Price;
+        await LoadSeriesDataAsync();
+    }
+
+    private async Task ToggleCompare(string symbol)
+    {
+        if (!_comparedSymbols.Remove(symbol))
+            _comparedSymbols.Add(symbol);
+        await LoadSeriesDataAsync();
+    }
+
+    private async Task SetRange(string range)
+    {
+        _range = range;
+        await LoadSeriesDataAsync();
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}
