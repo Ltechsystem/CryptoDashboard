@@ -14,6 +14,17 @@ timestamped snapshots in a local SQLite database and displays the price history 
    `dotnet run --project CryptoDashboard`
 4. The app should now be running at http://localhost:5249.
 
+## Setting up the database (EF Core)
+
+The app stores prices in a local SQLite database (`crypto.db`).
+
+1. Install the EF Core CLI tool: 
+   `dotnet tool install --global dotnet-ef`
+2. To create `crypto.db`: 
+   `dotnet ef database update --project CryptoDashboard`
+
+Run this when starting the app for the first time.
+
 ## Known issues
 
 - No retry on the Kraken API.
